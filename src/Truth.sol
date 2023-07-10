@@ -40,6 +40,7 @@ contract Truth is ERC721, Ownable {
     function updateToken(uint256 tokenId, address to, string memory description) external payable {
         uint256 newFee = getNextUpdateFee();
         require(msg.value >= newFee, 'Insufficient fee');
+        fee = newFee;
 
         if (bytes(description).length > 0) {
             // Update description
@@ -52,10 +53,32 @@ contract Truth is ERC721, Ownable {
             _safeTransfer(tokenOwner, to, tokenId, '');
         }
 
-        fee = newFee;
+        address sender = msg.sender;
+        userSpent[sender] += newFee;
         lastUpdateTime = block.timestamp;
+        emit UpdateToken(sender, fee, description);
+    }
 
-        emit UpdateToken(msg.sender, fee, description);
+    function transferFrom(address from, address to, uint256 tokenId) public virtual override {
+        from;
+        to;
+        tokenId;
+        revert();
+    }
+
+    function safeTransferFrom(address from, address to, uint256 tokenId) public virtual override {
+        from;
+        to;
+        tokenId;
+        revert();
+    }
+
+    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) public virtual override {
+        from;
+        to;
+        tokenId;
+        data;
+        revert();
     }
 
     function setBaseTokenURI(string memory baseURI) public onlyOwner {
