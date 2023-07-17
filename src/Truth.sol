@@ -4,24 +4,31 @@ import {Ownable} from 'openzeppelin-contracts/contracts/access/Ownable.sol';
 import {ERC721} from 'openzeppelin-contracts/contracts/token/ERC721/ERC721.sol';
 
 contract Truth is ERC721, Ownable {
-    event RevealTruth();
-    event UpdateToken(address indexed user, uint256 newFee, string description);
+    event RevealTruth(uint256 id);
+    event SpeakTruth(address indexed user, uint256 newFee, string description);
 
+    string public TOKEN_NAME = 'Truth';
     uint256 public constant BPS = 10000;
     uint256 public constant RATE = 100;
-    uint256 public constant END_PERIOD = 3 * 24 * 60 * 60;
+    uint256 public constant TRUTH_V2_FUND_RATIO = 2000;
+    uint256 public constant END_PERIOD = 3 days;
 
+    string public baseTokenURI;
     uint256 public totalSupply;
     uint256 public fee; // denominate in ETH
-    uint256 public lastUpdateTime;
-    string public baseTokenURI;
 
     mapping(uint256 => string) nftDesc;
+    mapping(uint256 => uint256) tokenLastUpdateTime;
     mapping(address => uint256) userSpent;
+
+    modifier NotFreeze(uint256 tokenId) {
+        require(tokenLastUpdateTime[tokenId] + END_PERIOD > block.timestamp, 'Freeze');
+        _;
+    }
 
     receive() external payable {}
 
-    constructor(string memory baseURI, uint256 initFee) ERC721('Truth', 'Truth') {
+    constructor(string memory baseURI, uint256 initFee) ERC721(TOKEN_NAME, TOKEN_NAME) {
         setBaseTokenURI(baseURI);
         fee = initFee;
     }
@@ -30,14 +37,28 @@ contract Truth is ERC721, Ownable {
         return (fee * (BPS + RATE)) / BPS;
     }
 
-    function mint() public onlyOwner {
-        uint256 id = totalSupply;
-        totalSupply++;
-        _safeMint(owner(), id);
-        emit RevealTruth();
+    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+        _requireMinted(tokenId);
+
+        //https://www.fakejson.online/api/json?name=Truth&description=${text}&image=https://fakeimg.pl/500x500/?text=${text}
+        return
+            string.concat(
+                'https://www.fakejson.online/api/json?name=Truth&description=',
+                nftDesc[tokenId],
+                '&image=https://fakeimg.pl/500x500/?text=',
+                nftDesc[tokenId]
+            );
     }
 
-    function updateToken(uint256 tokenId, address to, string memory description) external payable {
+    function mint() external onlyOwner {
+        uint256 tokenId = totalSupply;
+        totalSupply++;
+        tokenLastUpdateTime[tokenId] = block.timestamp;
+        _safeMint(owner(), tokenId);
+        emit RevealTruth(tokenId);
+    }
+
+    function SpeakTheTruth(uint256 tokenId, address to, string memory description) external payable NotFreeze(tokenId) {
         uint256 newFee = getNextUpdateFee();
         require(msg.value >= newFee, 'Insufficient fee');
         fee = newFee;
@@ -55,10 +76,30 @@ contract Truth is ERC721, Ownable {
 
         address sender = msg.sender;
         userSpent[sender] += newFee;
-        lastUpdateTime = block.timestamp;
-        emit UpdateToken(sender, fee, description);
+        tokenLastUpdateTime[tokenId] = block.timestamp;
+
+        emit SpeakTruth(sender, newFee, description);
     }
 
+    function EndTruth() external {
+        // Check all tokens are freeze
+        for (uint256 tokenId = 0; tokenId < totalSupply; ++tokenId) {
+            require(tokenLastUpdateTime[tokenId] + END_PERIOD < block.timestamp, 'Not freeze');
+        }
+
+        uint256 totalPrize = address(this).balance;
+        _toTeamDevFund(totalPrize);
+        // uint256 participant
+    }
+
+    /// @notice Block this function to fit the Truth.
+    function approve(address to, uint256 tokenId) public virtual override {
+        to;
+        tokenId;
+        revert();
+    }
+
+    /// @notice Block this function to fit the Truth.
     function transferFrom(address from, address to, uint256 tokenId) public virtual override {
         from;
         to;
@@ -66,6 +107,7 @@ contract Truth is ERC721, Ownable {
         revert();
     }
 
+    /// @notice Block this function to fit the Truth.
     function safeTransferFrom(address from, address to, uint256 tokenId) public virtual override {
         from;
         to;
@@ -73,6 +115,7 @@ contract Truth is ERC721, Ownable {
         revert();
     }
 
+    /// @notice Block this function to fit the Truth.
     function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) public virtual override {
         from;
         to;
@@ -89,9 +132,12 @@ contract Truth is ERC721, Ownable {
         return baseTokenURI;
     }
 
-    function _isApprovedOrOwner(address spender, uint256 tokenId) internal view virtual override returns (bool) {
-        spender;
-        tokenId;
-        return true;
+    function _toTeamDevFund(uint256 prize) internal returns (uint256) {
+        uint256 amount = (prize * TRUTH_V2_FUND_RATIO) / BPS;
+        address team = owner();
+        (bool succ, ) = team.call{value: amount}('');
+        require(succ, 'Send ETH fail');
+
+        return amount;
     }
 }
