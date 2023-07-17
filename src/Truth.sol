@@ -5,7 +5,7 @@ import {ERC721} from 'openzeppelin-contracts/contracts/token/ERC721/ERC721.sol';
 
 contract Truth is ERC721, Ownable {
     event RevealTruth(uint256 id);
-    event SpeakTruth(address indexed user, uint256 newFee, string description);
+    event SpeakTruth(address indexed user, uint256 fee, string description);
 
     string public TOKEN_NAME = 'Truth';
     uint256 public constant BPS = 10000;
@@ -17,9 +17,9 @@ contract Truth is ERC721, Ownable {
     uint256 public totalSupply;
     uint256 public fee; // denominate in ETH
 
-    mapping(uint256 => string) nftDesc;
-    mapping(uint256 => uint256) tokenLastUpdateTime;
-    mapping(address => uint256) userSpent;
+    mapping(uint256 => string) public nftDesc;
+    mapping(uint256 => uint256) public tokenLastUpdateTime;
+    mapping(address => uint256) public userSpent;
 
     modifier NotFreeze(uint256 tokenId) {
         require(tokenLastUpdateTime[tokenId] + END_PERIOD > block.timestamp, 'Freeze');
@@ -69,7 +69,7 @@ contract Truth is ERC721, Ownable {
         }
 
         address tokenOwner = _ownerOf(tokenId);
-        if (to != tokenOwner) {
+        if (to != tokenOwner && to != address(0)) {
             // Transfer token
             _safeTransfer(tokenOwner, to, tokenId, '');
         }
@@ -89,6 +89,8 @@ contract Truth is ERC721, Ownable {
 
         uint256 totalPrize = address(this).balance;
         _toTeamDevFund(totalPrize);
+
+        // TODO
         // uint256 participant
     }
 
@@ -139,5 +141,10 @@ contract Truth is ERC721, Ownable {
         require(succ, 'Send ETH fail');
 
         return amount;
+    }
+
+    /// For testing use
+    function __SetLastUpdateTimeToZero(uint256 tokenId) external {
+        tokenLastUpdateTime[tokenId] = 0;
     }
 }
