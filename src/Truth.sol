@@ -37,6 +37,12 @@ contract Truth is ERC721, Ownable {
         return (fee * (BPS + RATE)) / BPS;
     }
 
+    function getNftFrozenTime(uint256 tokenId) public view returns (uint256) {
+        if (tokenLastUpdateTime[tokenId] == 0) return 0;
+
+        return tokenLastUpdateTime[tokenId] + END_PERIOD;
+    }
+
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
         _requireMinted(tokenId);
 
@@ -98,6 +104,13 @@ contract Truth is ERC721, Ownable {
     function approve(address to, uint256 tokenId) public virtual override {
         to;
         tokenId;
+        revert();
+    }
+
+    /// @notice Block this function to fit the Truth.
+    function setApprovalForAll(address operator, bool approved) public virtual override {
+        approved;
+        operator;
         revert();
     }
 
