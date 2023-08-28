@@ -5,7 +5,13 @@ import {ERC721} from 'openzeppelin-contracts/contracts/token/ERC721/ERC721.sol';
 
 contract Truth is ERC721, Ownable {
     event RevealTruth(uint256 id);
-    event SpeakTruth(address indexed user, uint256 fee, string description);
+    event SpeakTruth(
+        address indexed sender,
+        address indexed owner,
+        uint256 travelingTime,
+        uint256 fee,
+        string description
+    );
 
     string public TOKEN_NAME = 'Truth';
     uint256 public constant BPS = 10000;
@@ -16,6 +22,7 @@ contract Truth is ERC721, Ownable {
     string public baseTokenURI;
     uint256 public totalSupply;
     uint256 public fee; // denominate in ETH
+    uint256 public travelingTime;
 
     mapping(uint256 => string) public nftDesc;
     mapping(uint256 => uint256) public tokenLastUpdateTime;
@@ -61,6 +68,7 @@ contract Truth is ERC721, Ownable {
         totalSupply++;
         tokenLastUpdateTime[tokenId] = block.timestamp;
         _safeMint(owner(), tokenId);
+        travelingTime++;
         emit RevealTruth(tokenId);
     }
 
@@ -83,8 +91,8 @@ contract Truth is ERC721, Ownable {
         address sender = msg.sender;
         userSpent[sender] += newFee;
         tokenLastUpdateTime[tokenId] = block.timestamp;
-
-        emit SpeakTruth(sender, newFee, description);
+        travelingTime++;
+        emit SpeakTruth(sender, _ownerOf(tokenId), travelingTime, newFee, description);
     }
 
     function EndTruth() external {
